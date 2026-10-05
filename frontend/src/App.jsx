@@ -9,19 +9,36 @@ import Pharmacy from "./pages/Pharmacy";
 import Beds from "./pages/Beds";
 import Users from "./pages/Users";
 import Admission from "./pages/Admission";
+
 import Register from "./Register";
+import ForgotPassword from "./ForgotPassword";
+
 import hospitalBackground from "./assets/hospital-background.jpg";
 
 const API_URL =
   import.meta.env.VITE_API_URL || "http://127.0.0.1:5000";
 
 function App() {
+  // =====================================================
+  // LOGIN / REGISTER / FORGOT PASSWORD STATES
+  // =====================================================
+
   const [showRegister, setShowRegister] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
 
+  // =====================================================
+  // PAGE
+  // =====================================================
+
   const [page, setPage] = useState("dashboard");
   const [mobileMenu, setMobileMenu] = useState(false);
+
+  // =====================================================
+  // DASHBOARD
+  // =====================================================
 
   const [dashboard, setDashboard] = useState({
     patients: 0,
@@ -40,10 +57,13 @@ function App() {
   const [dashboardError, setDashboardError] = useState("");
 
   // =====================================================
-  // LOGIN CHECK
+  // CHECK SAVED LOGIN
   // =====================================================
+
   useEffect(() => {
-    const savedUser = localStorage.getItem("smartHospitalUser");
+    const savedUser = localStorage.getItem(
+      "smartHospitalUser"
+    );
 
     if (savedUser) {
       try {
@@ -52,16 +72,22 @@ function App() {
         setUser(parsedUser);
         setIsLoggedIn(true);
       } catch (error) {
-        console.error("Saved user error:", error);
+        console.error(
+          "Saved user error:",
+          error
+        );
 
-        localStorage.removeItem("smartHospitalUser");
+        localStorage.removeItem(
+          "smartHospitalUser"
+        );
       }
     }
   }, []);
 
   // =====================================================
-  // DASHBOARD DATA
+  // FETCH DASHBOARD
   // =====================================================
+
   const fetchDashboard = async () => {
     setLoadingDashboard(true);
     setDashboardError("");
@@ -72,7 +98,9 @@ function App() {
       );
 
       if (!response.ok) {
-        throw new Error("Dashboard API failed");
+        throw new Error(
+          "Dashboard API failed"
+        );
       }
 
       const data = await response.json();
@@ -132,7 +160,10 @@ function App() {
           0,
       });
     } catch (error) {
-      console.error("Dashboard error:", error);
+      console.error(
+        "Dashboard error:",
+        error
+      );
 
       setDashboardError(
         "Unable to load dashboard data. Please check Flask backend."
@@ -142,6 +173,10 @@ function App() {
     }
   };
 
+  // =====================================================
+  // LOAD DASHBOARD AFTER LOGIN
+  // =====================================================
+
   useEffect(() => {
     if (isLoggedIn) {
       fetchDashboard();
@@ -149,15 +184,24 @@ function App() {
   }, [isLoggedIn]);
 
   // =====================================================
-  // LOGIN
+  // LOGIN SUCCESS
   // =====================================================
-  const handleLogin = (data) => {
-    const loggedUser = data.user || data;
 
-    console.log("Logged in user:", loggedUser);
+  const handleLogin = (data) => {
+    const loggedUser =
+      data.user || data;
+
+    console.log(
+      "Logged in user:",
+      loggedUser
+    );
 
     setUser(loggedUser);
     setIsLoggedIn(true);
+
+    setShowRegister(false);
+    setShowForgotPassword(false);
+
     setPage("dashboard");
 
     localStorage.setItem(
@@ -169,45 +213,82 @@ function App() {
   // =====================================================
   // LOGOUT
   // =====================================================
+
   const handleLogout = () => {
-    localStorage.removeItem("smartHospitalUser");
+    localStorage.removeItem(
+      "smartHospitalUser"
+    );
 
     setUser(null);
     setIsLoggedIn(false);
+
+    setShowRegister(false);
+    setShowForgotPassword(false);
+
     setPage("dashboard");
     setMobileMenu(false);
   };
 
   // =====================================================
-  // LOGIN PAGE
+  // BEFORE LOGIN
   // =====================================================
-  if (!isLoggedIn) {
 
-  if (showRegister) {
+  if (!isLoggedIn) {
+    // -----------------------------------------------
+    // REGISTER PAGE
+    // -----------------------------------------------
+
+    if (showRegister) {
+      return (
+        <Register
+          onBackToLogin={() => {
+            setShowRegister(false);
+            setShowForgotPassword(false);
+          }}
+        />
+      );
+    }
+
+    // -----------------------------------------------
+    // FORGOT PASSWORD PAGE
+    // -----------------------------------------------
+
+    if (showForgotPassword) {
+      return (
+        <ForgotPassword
+          onBackToLogin={() => {
+            setShowForgotPassword(false);
+            setShowRegister(false);
+          }}
+        />
+      );
+    }
+
+    // -----------------------------------------------
+    // LOGIN PAGE
+    // -----------------------------------------------
 
     return (
-      <Register
-        onBackToLogin={() => {
+      <Login
+        onLogin={handleLogin}
+
+        onRegister={() => {
+          setShowRegister(true);
+          setShowForgotPassword(false);
+        }}
+
+        onForgotPassword={() => {
+          setShowForgotPassword(true);
           setShowRegister(false);
         }}
       />
     );
-
   }
-
-  return (
-    <Login
-      onLogin={handleLogin}
-      onRegister={() => {
-        setShowRegister(true);
-      }}
-    />
-  );
-}
 
   // =====================================================
   // USER ROLE
   // =====================================================
+
   const role =
     user?.role ||
     user?.user_role ||
@@ -250,6 +331,7 @@ function App() {
   // =====================================================
   // PAGE NAVIGATION
   // =====================================================
+
   const goToPage = (targetPage) => {
     let allowed = true;
 
@@ -298,8 +380,9 @@ function App() {
   };
 
   // =====================================================
-  // MENU BUTTON CLASS
+  // MENU BUTTON
   // =====================================================
+
   const menuButtonClass = (target) => {
     return `
       w-full
@@ -324,19 +407,34 @@ function App() {
   // =====================================================
   // SIDEBAR
   // =====================================================
+
   const SidebarContent = () => (
     <div className="h-full flex flex-col">
 
       {/* USER INFO */}
+
       <div className="mb-6 rounded-xl bg-blue-50 p-4">
 
         <div className="flex items-center gap-3">
 
-          <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center text-xl">
+          <div
+            className="
+              w-11
+              h-11
+              rounded-full
+              bg-blue-600
+              text-white
+              flex
+              items-center
+              justify-center
+              text-xl
+            "
+          >
             👤
           </div>
 
           <div>
+
             <p className="font-bold text-slate-800">
               {user?.username || "User"}
             </p>
@@ -344,6 +442,7 @@ function App() {
             <p className="text-sm text-blue-600 font-semibold">
               {role}
             </p>
+
           </div>
 
         </div>
@@ -351,6 +450,7 @@ function App() {
       </div>
 
       {/* MENU TITLE */}
+
       <div className="mb-4">
 
         <h2 className="text-xl font-bold text-slate-800">
@@ -364,22 +464,33 @@ function App() {
       </div>
 
       {/* MENU */}
+
       <div className="space-y-2">
 
         {/* DASHBOARD */}
+
         <button
-          onClick={() => goToPage("dashboard")}
-          className={menuButtonClass("dashboard")}
+          onClick={() =>
+            goToPage("dashboard")
+          }
+          className={menuButtonClass(
+            "dashboard"
+          )}
         >
           🏠
           <span>Dashboard</span>
         </button>
 
         {/* PATIENTS */}
+
         {canAccessPatients && (
           <button
-            onClick={() => goToPage("patients")}
-            className={menuButtonClass("patients")}
+            onClick={() =>
+              goToPage("patients")
+            }
+            className={menuButtonClass(
+              "patients"
+            )}
           >
             👥
             <span>Patients</span>
@@ -387,10 +498,15 @@ function App() {
         )}
 
         {/* APPOINTMENTS */}
+
         {canAccessAppointments && (
           <button
-            onClick={() => goToPage("appointments")}
-            className={menuButtonClass("appointments")}
+            onClick={() =>
+              goToPage("appointments")
+            }
+            className={menuButtonClass(
+              "appointments"
+            )}
           >
             🗓️
             <span>Appointments</span>
@@ -398,10 +514,15 @@ function App() {
         )}
 
         {/* DOCTORS */}
+
         {canAccessDoctors && (
           <button
-            onClick={() => goToPage("doctors")}
-            className={menuButtonClass("doctors")}
+            onClick={() =>
+              goToPage("doctors")
+            }
+            className={menuButtonClass(
+              "doctors"
+            )}
           >
             🩺
             <span>Doctors</span>
@@ -409,10 +530,15 @@ function App() {
         )}
 
         {/* BILLING */}
+
         {canAccessBilling && (
           <button
-            onClick={() => goToPage("billing")}
-            className={menuButtonClass("billing")}
+            onClick={() =>
+              goToPage("billing")
+            }
+            className={menuButtonClass(
+              "billing"
+            )}
           >
             💰
             <span>Billing</span>
@@ -420,10 +546,15 @@ function App() {
         )}
 
         {/* PHARMACY */}
+
         {canAccessPharmacy && (
           <button
-            onClick={() => goToPage("pharmacy")}
-            className={menuButtonClass("pharmacy")}
+            onClick={() =>
+              goToPage("pharmacy")
+            }
+            className={menuButtonClass(
+              "pharmacy"
+            )}
           >
             💊
             <span>Pharmacy</span>
@@ -431,10 +562,15 @@ function App() {
         )}
 
         {/* BEDS */}
+
         {canAccessBeds && (
           <button
-            onClick={() => goToPage("beds")}
-            className={menuButtonClass("beds")}
+            onClick={() =>
+              goToPage("beds")
+            }
+            className={menuButtonClass(
+              "beds"
+            )}
           >
             🛏️
             <span>Bed Management</span>
@@ -442,10 +578,15 @@ function App() {
         )}
 
         {/* ADMISSION */}
+
         {canAccessBeds && (
           <button
-            onClick={() => goToPage("admission")}
-            className={menuButtonClass("admission")}
+            onClick={() =>
+              goToPage("admission")
+            }
+            className={menuButtonClass(
+              "admission"
+            )}
           >
             🏥
             <span>Admission</span>
@@ -453,10 +594,15 @@ function App() {
         )}
 
         {/* USERS */}
+
         {canAccessUsers && (
           <button
-            onClick={() => goToPage("users")}
-            className={menuButtonClass("users")}
+            onClick={() =>
+              goToPage("users")
+            }
+            className={menuButtonClass(
+              "users"
+            )}
           >
             👤
             <span>User Management</span>
@@ -466,9 +612,18 @@ function App() {
       </div>
 
       {/* BOTTOM USER INFO */}
+
       <div className="mt-auto pt-8">
 
-        <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
+        <div
+          className="
+            rounded-xl
+            bg-slate-50
+            border
+            border-slate-200
+            p-4
+          "
+        >
 
           <p className="text-xs text-slate-500">
             Logged in as
@@ -492,6 +647,7 @@ function App() {
   // =====================================================
   // STAT CARD
   // =====================================================
+
   const StatCard = ({
     title,
     value,
@@ -541,9 +697,15 @@ function App() {
   // =====================================================
   // DASHBOARD
   // =====================================================
+
   const Dashboard = () => (
     <div
-      className="min-h-[calc(100vh-88px)] bg-cover bg-center bg-fixed"
+      className="
+        min-h-[calc(100vh-88px)]
+        bg-cover
+        bg-center
+        bg-fixed
+      "
       style={{
         backgroundImage: `
           linear-gradient(
@@ -557,12 +719,31 @@ function App() {
 
       <div className="p-4 md:p-8">
 
-        {/* DASHBOARD HEADER */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-7">
+        {/* HEADER */}
+
+        <div
+          className="
+            flex
+            flex-col
+            md:flex-row
+            md:items-center
+            md:justify-between
+            gap-4
+            mb-7
+          "
+        >
 
           <div>
 
-            <h1 className="text-3xl md:text-4xl font-bold text-white drop-shadow-lg">
+            <h1
+              className="
+                text-3xl
+                md:text-4xl
+                font-bold
+                text-white
+                drop-shadow-lg
+              "
+            >
               Dashboard
             </h1>
 
@@ -570,7 +751,19 @@ function App() {
               Welcome, {user?.username || "User"}
             </p>
 
-            <div className="mt-2 inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full">
+            <div
+              className="
+                mt-2
+                inline-flex
+                items-center
+                gap-2
+                bg-white/20
+                backdrop-blur-sm
+                px-3
+                py-1
+                rounded-full
+              "
+            >
 
               <span className="text-white text-sm">
                 Role:
@@ -608,14 +801,35 @@ function App() {
         </div>
 
         {/* ERROR */}
+
         {dashboardError && (
-          <div className="mb-6 bg-red-100 border border-red-300 text-red-700 px-5 py-4 rounded-xl">
+          <div
+            className="
+              mb-6
+              bg-red-100
+              border
+              border-red-300
+              text-red-700
+              px-5
+              py-4
+              rounded-xl
+            "
+          >
             {dashboardError}
           </div>
         )}
 
         {/* STATISTICS */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+
+        <div
+          className="
+            grid
+            grid-cols-1
+            sm:grid-cols-2
+            xl:grid-cols-4
+            gap-5
+          "
+        >
 
           <StatCard
             title="Total Patients"
@@ -678,7 +892,17 @@ function App() {
         </div>
 
         {/* BED STATUS */}
-        <div className="mt-7 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-6">
+
+        <div
+          className="
+            mt-7
+            bg-white/95
+            backdrop-blur-md
+            rounded-2xl
+            shadow-xl
+            p-6
+          "
+        >
 
           <div className="flex items-center gap-3 mb-5">
 
@@ -692,10 +916,24 @@ function App() {
 
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div
+            className="
+              grid
+              grid-cols-1
+              md:grid-cols-3
+              gap-5
+            "
+          >
 
-            {/* AVAILABLE */}
-            <div className="rounded-xl bg-green-50 border border-green-200 p-5">
+            <div
+              className="
+                rounded-xl
+                bg-green-50
+                border
+                border-green-200
+                p-5
+              "
+            >
 
               <p className="text-slate-600">
                 Available
@@ -707,8 +945,15 @@ function App() {
 
             </div>
 
-            {/* OCCUPIED */}
-            <div className="rounded-xl bg-red-50 border border-red-200 p-5">
+            <div
+              className="
+                rounded-xl
+                bg-red-50
+                border
+                border-red-200
+                p-5
+              "
+            >
 
               <p className="text-slate-600">
                 Occupied
@@ -720,8 +965,15 @@ function App() {
 
             </div>
 
-            {/* MAINTENANCE */}
-            <div className="rounded-xl bg-yellow-50 border border-yellow-200 p-5">
+            <div
+              className="
+                rounded-xl
+                bg-yellow-50
+                border
+                border-yellow-200
+                p-5
+              "
+            >
 
               <p className="text-slate-600">
                 Maintenance
@@ -738,17 +990,36 @@ function App() {
         </div>
 
         {/* QUICK ACTIONS */}
-        <div className="mt-7 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-6">
+
+        <div
+          className="
+            mt-7
+            bg-white/95
+            backdrop-blur-md
+            rounded-2xl
+            shadow-xl
+            p-6
+          "
+        >
 
           <h2 className="text-xl font-bold text-slate-800 mb-5">
             Quick Actions
           </h2>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div
+            className="
+              grid
+              grid-cols-2
+              md:grid-cols-4
+              gap-4
+            "
+          >
 
             {canAccessPatients && (
               <button
-                onClick={() => goToPage("patients")}
+                onClick={() =>
+                  goToPage("patients")
+                }
                 className="
                   p-5
                   rounded-xl
@@ -767,7 +1038,9 @@ function App() {
 
             {canAccessAppointments && (
               <button
-                onClick={() => goToPage("appointments")}
+                onClick={() =>
+                  goToPage("appointments")
+                }
                 className="
                   p-5
                   rounded-xl
@@ -786,7 +1059,9 @@ function App() {
 
             {canAccessBilling && (
               <button
-                onClick={() => goToPage("billing")}
+                onClick={() =>
+                  goToPage("billing")
+                }
                 className="
                   p-5
                   rounded-xl
@@ -805,7 +1080,9 @@ function App() {
 
             {canAccessBeds && (
               <button
-                onClick={() => goToPage("admission")}
+                onClick={() =>
+                  goToPage("admission")
+                }
                 className="
                   p-5
                   rounded-xl
@@ -834,18 +1111,32 @@ function App() {
   // =====================================================
   // MAIN UI
   // =====================================================
+
   return (
     <div className="min-h-screen bg-slate-100">
 
-      {/* =================================================
-          HEADER
-      ================================================= */}
+      {/* HEADER */}
 
-      <header className="h-[88px] bg-blue-700 text-white flex items-center justify-between px-4 md:px-6 shadow-lg relative z-50">
+      <header
+        className="
+          h-[88px]
+          bg-blue-700
+          text-white
+          flex
+          items-center
+          justify-between
+          px-4
+          md:px-6
+          shadow-lg
+          relative
+          z-50
+        "
+      >
 
         <div className="flex items-center gap-3">
 
           {/* MOBILE MENU */}
+
           <button
             onClick={() =>
               setMobileMenu(!mobileMenu)
@@ -876,7 +1167,8 @@ function App() {
 
         </div>
 
-        {/* HEADER USER */}
+        {/* USER */}
+
         <div className="flex items-center gap-4">
 
           <div className="hidden md:block text-right">
@@ -910,9 +1202,7 @@ function App() {
 
       </header>
 
-      {/* =================================================
-          MOBILE OVERLAY
-      ================================================= */}
+      {/* MOBILE OVERLAY */}
 
       {mobileMenu && (
         <div
@@ -923,13 +1213,13 @@ function App() {
             z-40
             md:hidden
           "
-          onClick={() => setMobileMenu(false)}
+          onClick={() =>
+            setMobileMenu(false)
+          }
         ></div>
       )}
 
-      {/* =================================================
-          MOBILE SIDEBAR
-      ================================================= */}
+      {/* MOBILE SIDEBAR */}
 
       <aside
         className={`
@@ -956,9 +1246,7 @@ function App() {
         <SidebarContent />
       </aside>
 
-      {/* =================================================
-          DESKTOP SIDEBAR
-      ================================================= */}
+      {/* DESKTOP SIDEBAR */}
 
       <aside
         className="
@@ -979,77 +1267,145 @@ function App() {
         <SidebarContent />
       </aside>
 
-      {/* =================================================
-          MAIN CONTENT
-      ================================================= */}
+      {/* MAIN CONTENT */}
 
-      <main className="md:ml-72 min-h-[calc(100vh-88px)]">
+      <main
+        className="
+          md:ml-72
+          min-h-[calc(100vh-88px)]
+        "
+      >
 
         {/* DASHBOARD */}
+
         {page === "dashboard" && (
           <Dashboard />
         )}
 
         {/* PATIENTS */}
+
         {page === "patients" &&
           canAccessPatients && (
-            <div className="p-4 md:p-6 bg-slate-100 min-h-[calc(100vh-88px)]">
+            <div
+              className="
+                p-4
+                md:p-6
+                bg-slate-100
+                min-h-[calc(100vh-88px)]
+              "
+            >
               <Patients />
             </div>
           )}
 
         {/* APPOINTMENTS */}
+
         {page === "appointments" &&
           canAccessAppointments && (
-            <div className="p-4 md:p-6 bg-slate-100 min-h-[calc(100vh-88px)]">
+            <div
+              className="
+                p-4
+                md:p-6
+                bg-slate-100
+                min-h-[calc(100vh-88px)]
+              "
+            >
               <Appointments />
             </div>
           )}
 
         {/* DOCTORS */}
+
         {page === "doctors" &&
           canAccessDoctors && (
-            <div className="p-4 md:p-6 bg-slate-100 min-h-[calc(100vh-88px)]">
+            <div
+              className="
+                p-4
+                md:p-6
+                bg-slate-100
+                min-h-[calc(100vh-88px)]
+              "
+            >
               <Doctors />
             </div>
           )}
 
         {/* BILLING */}
+
         {page === "billing" &&
           canAccessBilling && (
-            <div className="p-4 md:p-6 bg-slate-100 min-h-[calc(100vh-88px)]">
+            <div
+              className="
+                p-4
+                md:p-6
+                bg-slate-100
+                min-h-[calc(100vh-88px)]
+              "
+            >
               <Billing />
             </div>
           )}
 
         {/* PHARMACY */}
+
         {page === "pharmacy" &&
           canAccessPharmacy && (
-            <div className="p-4 md:p-6 bg-slate-100 min-h-[calc(100vh-88px)]">
+            <div
+              className="
+                p-4
+                md:p-6
+                bg-slate-100
+                min-h-[calc(100vh-88px)]
+              "
+            >
               <Pharmacy />
             </div>
           )}
 
         {/* BEDS */}
+
         {page === "beds" &&
           canAccessBeds && (
-            <div className="p-4 md:p-6 bg-slate-100 min-h-[calc(100vh-88px)]">
+            <div
+              className="
+                p-4
+                md:p-6
+                bg-slate-100
+                min-h-[calc(100vh-88px)]
+              "
+            >
               <Beds />
             </div>
           )}
 
         {/* USERS */}
+
         {page === "users" &&
           canAccessUsers && (
-            <div className="p-4 md:p-6 bg-slate-100 min-h-[calc(100vh-88px)]">
+            <div
+              className="
+                p-4
+                md:p-6
+                bg-slate-100
+                min-h-[calc(100vh-88px)]
+              "
+            >
               <Users />
             </div>
           )}
 
         {/* ADMISSION */}
+
         {page === "admission" &&
           canAccessBeds && (
-            <div className="p-4 md:p-6 bg-slate-100 min-h-[calc(100vh-88px)]">
+            <div
+              className="
+                p-4
+                md:p-6
+                bg-slate-100
+                min-h-[calc(100vh-88px)]
+              "
+            >
               <Admission />
             </div>
           )}

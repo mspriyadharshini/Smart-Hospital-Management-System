@@ -7,11 +7,13 @@ import random
 import smtplib
 
 from datetime import datetime, timedelta
-
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from dotenv import load_dotenv
+import random
+from datetime import datetime, timedelta
+from werkzeug.security import generate_password_hash
 
 
 load_dotenv()
@@ -2521,9 +2523,6 @@ def register():
         if connection:
             connection.close()
 
-# ==========================================
-# LOGIN API
-# ==========================================
 
 # ==========================================
 # LOGIN API
@@ -2866,41 +2865,50 @@ def delete_user(id):
         connection.close()
 
 # ============================================================
-# SEND OTP
+# FORGOT PASSWORD
 # ============================================================
 
-@app.route("/api/forgot-password/send-otp", methods=["POST"])
-def send_otp():
+otp_storage = {}
+
+
+@app.route("/api/forgot-password", methods=["POST"])
+def forgot_password():
+
+    connection = None
+    cursor = None
 
     try:
 
-        data = request.get_json()
+        data = request.get_json() or {}
 
         email = data.get("email", "").strip().lower()
 
         if not email:
-
             return jsonify({
+                "success": False,
                 "message": "Email is required"
             }), 400
 
+        # ----------------------------------------
+        # CHECK EMAIL IN DATABASE
+        # ----------------------------------------
 
-        conn = get_db_connection()
+        connection = get_db_connection()
 
-        if conn is None:
-
+        if connection is None:
             return jsonify({
+                "success": False,
                 "message": "Database connection failed"
             }), 500
 
-
-        cursor = conn.cursor(dictionary=True)
+        cursor = connection.cursor(dictionary=True)
 
         cursor.execute(
             """
             SELECT id, username, email
             FROM users
             WHERE LOWER(email) = %s
+            LIMIT 1
             """,
             (email,)
         )
@@ -2908,225 +2916,174 @@ def send_otp():
         user = cursor.fetchone()
 
         cursor.close()
-        conn.close()
+        cursor = None
 
+        connection.close()
+        connection = None
 
         if not user:
-
             return jsonify({
-                "message": "This email is not registered."
+                "success": False,
+                "message": "Email is not registered."
             }), 404
 
-
-        # Generate 6 digit OTP
+        # ----------------------------------------
+        # GENERATE OTP
+        # ----------------------------------------
 
         otp = str(random.randint(100000, 999999))
 
         expires_at = datetime.now() + timedelta(minutes=5)
-
-
-        # Store OTP
 
         otp_storage[email] = {
             "otp": otp,
             "expires_at": expires_at
         }
 
+        # ----------------------------------------
+        # DEMO MODE
+        # OTP WILL APPEAR IN FLASK TERMINAL
+        # ----------------------------------------
 
-        # Gmail settings
-
-        sender_email = os.getenv("MAIL_USERNAME")
-        sender_password = os.getenv("MAIL_PASSWORD")
-
-
-        if not sender_email or not sender_password:
-
-            return jsonify({
-                "message": "Email server is not configured."
-            }), 500
-
-
-        # Create email
-
-        message = MIMEMultipart()
-
-        message["From"] = sender_email
-        message["To"] = email
-        message["Subject"] = "Smart Hospital - Password Reset OTP"
-
-
-        body = f"""
-Hello {user["username"]},
-
-Your Smart Hospital password reset OTP is:
-
-{otp}
-
-This OTP is valid for 5 minutes.
-
-If you did not request a password reset,
-please ignore this email.
-
-Smart Hospital Management System
-"""
-
-
-        message.attach(
-            MIMEText(body, "plain")
-        )
-
-
-        # Connect Gmail SMTP
-
-        server = smtplib.SMTP(
-            "smtp.gmail.com",
-            587
-        )
-
-        server.starttls()
-
-        server.login(
-            sender_email,
-            sender_password
-        )
-
-        server.sendmail(
-            sender_email,
-            email,
-            message.as_string()
-        )
-
-        server.quit()
-
+        print("")
+        print("======================================")
+        print("       SMART HOSPITAL OTP")
+        print("======================================")
+        print("Email :", email)
+        print("OTP   :", otp)
+        print("Valid : 5 minutes")
+        print("======================================")
+        print("")
 
         return jsonify({
-            "message": "OTP sent successfully."
+            "success": True,
+            "message": "OTP generated successfully.",
+            "demo_otp": otp
         }), 200
-
 
     except Exception as e:
 
-        print("Send OTP error:", e)
+        print("FORGOT PASSWORD ERROR:", e)
 
         return jsonify({
-            "message": "Unable to send OTP."
+            "success": False,
+            "message": "Unable to generate OTP.",
+            "error": str(e)
         }), 500
 
+    finally:
+
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()
+
 
 # ============================================================
-# VERIFY OTP + RESET PASSWORD
+# RESET PASSWORD
 # ============================================================
 
-@app.route("/api/forgot-password/reset", methods=["POST"])
+@app.route("/api/reset-password", methods=["POST"])
 def reset_password():
+
+    connection = None
+    cursor = None
 
     try:
 
-        data = request.get_json()
+        data = request.get_json() or {}
 
         email = data.get("email", "").strip().lower()
         otp = data.get("otp", "").strip()
         new_password = data.get("new_password", "")
 
+        # ----------------------------------------
+        # VALIDATION
+        # ----------------------------------------
 
         if not email:
-
             return jsonify({
-                "message": "Email is required."
+                "success": False,
+                "message": "Email is required"
             }), 400
-
 
         if not otp:
-
             return jsonify({
-                "message": "OTP is required."
+                "success": False,
+                "message": "OTP is required"
             }), 400
-
 
         if not new_password:
-
             return jsonify({
-                "message": "New password is required."
+                "success": False,
+                "message": "New password is required"
             }), 400
-
 
         if len(new_password) < 6:
-
             return jsonify({
-                "message": "Password must contain at least 6 characters."
+                "success": False,
+                "message": "Password must contain at least 6 characters"
             }), 400
 
+        # ----------------------------------------
+        # CHECK OTP
+        # ----------------------------------------
 
-        # Check OTP exists
+        saved_otp = otp_storage.get(email)
 
-        stored_otp = otp_storage.get(email)
-
-        if not stored_otp:
+        if not saved_otp:
 
             return jsonify({
+                "success": False,
                 "message": "OTP not found. Please request a new OTP."
             }), 400
 
+        # ----------------------------------------
+        # CHECK EXPIRY
+        # ----------------------------------------
 
-        # Check OTP expiry
-
-        if datetime.now() > stored_otp["expires_at"]:
+        if datetime.now() > saved_otp["expires_at"]:
 
             otp_storage.pop(email, None)
 
             return jsonify({
+                "success": False,
                 "message": "OTP expired. Please request a new OTP."
             }), 400
 
+        # ----------------------------------------
+        # CHECK OTP
+        # ----------------------------------------
 
-        # Check OTP
-
-        if otp != stored_otp["otp"]:
+        if saved_otp["otp"] != otp:
 
             return jsonify({
+                "success": False,
                 "message": "Invalid OTP."
             }), 400
 
+        # ----------------------------------------
+        # HASH NEW PASSWORD
+        # ----------------------------------------
 
-        # Database connection
-
-        conn = get_db_connection()
-
-        if conn is None:
-
-            return jsonify({
-                "message": "Database connection failed."
-            }), 500
-
-
-        cursor = conn.cursor(dictionary=True)
-
-
-        # Check user
-
-        cursor.execute(
-            """
-            SELECT id
-            FROM users
-            WHERE LOWER(email) = %s
-            """,
-            (email,)
+        hashed_password = generate_password_hash(
+            new_password
         )
 
-        user = cursor.fetchone()
+        # ----------------------------------------
+        # UPDATE DATABASE
+        # ----------------------------------------
 
+        connection = get_db_connection()
 
-        if not user:
-
-            cursor.close()
-            conn.close()
-
+        if connection is None:
             return jsonify({
-                "message": "User not found."
-            }), 404
+                "success": False,
+                "message": "Database connection failed"
+            }), 500
 
-
-        # Update password
+        cursor = connection.cursor()
 
         cursor.execute(
             """
@@ -3134,35 +3091,43 @@ def reset_password():
             SET password = %s
             WHERE LOWER(email) = %s
             """,
-            (new_password, email)
+            (
+                hashed_password,
+                email
+            )
         )
 
+        connection.commit()
 
-        conn.commit()
-
-        cursor.close()
-        conn.close()
-
-
-        # Remove used OTP
+        # Remove OTP after successful reset
 
         otp_storage.pop(email, None)
 
-
         return jsonify({
+            "success": True,
             "message": "Password reset successfully."
         }), 200
 
-
     except Exception as e:
 
-        print("Reset password error:", e)
+        if connection:
+            connection.rollback()
+
+        print("RESET PASSWORD ERROR:", e)
 
         return jsonify({
-            "message": "Unable to reset password."
+            "success": False,
+            "message": "Unable to reset password.",
+            "error": str(e)
         }), 500
 
-    
+    finally:
+
+        if cursor:
+            cursor.close()
+
+        if connection:
+            connection.close()
 # ==========================================
 # START FLASK SERVER
 # ==========================================
